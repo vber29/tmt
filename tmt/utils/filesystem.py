@@ -4,10 +4,10 @@ Utility functions for filesystem operations.
 
 import os
 import shutil
-import subprocess
 
 import tmt.log
 from tmt._compat.pathlib import Path
+from tmt.utils import Command, RunError
 
 
 def _copy_tree_reflinks(
@@ -18,31 +18,18 @@ def _copy_tree_reflinks(
 ) -> bool:
     """
     Attempt to copy directory using reflinks.
-
-    Returns True on success, False on failure.
     """
+    logger.debug(f"Attempting reflink copy from '{src}' to '{dst}'")
+
     try:
-        logger.debug(f"Attempting reflink copy from '{src}' to '{dst}'")
-
-        # Create destination directory if it doesn't exist
-        # Check if src exists first
-        if not src.exists():
-            logger.debug(f"Source directory '{src}' does not exist, skipping reflink copy")
-            return False  # Indicate failure as source doesn't exist
-
-        dst.mkdir(parents=True, exist_ok=True)
-
         # Use cp with --reflink=auto which falls back to regular copy if reflinks not supported
         # The '/./' at the end of the source path tells cp to copy the *contents* of the directory
         # rather than creating a new subdirectory in the destination
-        subprocess.run(
-            ['cp', '-a', '--reflink=auto', f"{src}/./", str(dst)],
-            check=True,
-            stderr=subprocess.PIPE,
+        Command('cp', '-a', '--reflink=auto', f"{src}/./", str(dst)).run(
+            cwd=None, logger=logger, join=True, silent=True
         )
-        logger.debug("Directory copied using reflink")
         return True
-    except subprocess.CalledProcessError as error:
+    except RunError as error:
         # Specific error for command failure
         logger.debug(f"Reflink copy command failed: {error}, falling back")
         return False
@@ -65,13 +52,6 @@ def _copy_tree_basic(
     Returns True on successful completion.
     """
     logger.debug(f"Performing basic copy from '{src}' to '{dst}'")
-
-    if not dst.exists():
-        dst.mkdir(parents=True, exist_ok=True)
-
-    if not src.exists():
-        logger.debug(f"Source directory '{src}' does not exist, skipping basic copy")
-        return True
 
     copied_count = 0
     try:
@@ -119,9 +99,16 @@ def copy_tree(
     :param dst: Destination directory path
     :param logger: Logger to use for debug messages
     :param workdir_root: The root directory for tmt's working files (e.g., /var/tmp/tmt),
-                         used for the hardlink cache.
     """
     logger.debug(f"Copying directory tree from '{src}' to '{dst}'")
+
+    # Check if source exists first
+    if not src.exists():
+        logger.debug(f"Source directory '{src}' does not exist, skipping copy.")
+        return
+
+    # Create destination directory if it doesn't exist
+    dst.mkdir(parents=True, exist_ok=True)
 
     # 1. Try reflink copy
     if _copy_tree_reflinks(src, dst, logger, workdir_root):

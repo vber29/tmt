@@ -1,4 +1,3 @@
-import subprocess
 import tempfile
 from unittest import TestCase, mock
 
@@ -74,13 +73,15 @@ class TestCopyTree(TestCase):
         cp_args = args[0]
         assert '--reflink=auto' in cp_args
 
-    @mock.patch('subprocess.run')
+    @mock.patch('tmt.utils.Command.run')
     def test_fallback_error_handling(self, mock_run):
-        """Test fallback to hardlink strategy when cp command fails"""
-        # Make subprocess.run raise CalledProcessError to trigger fallback
-        mock_run.side_effect = subprocess.CalledProcessError(
-            cmd=['cp', '-a', '--reflink=auto', f"{self.source_dir}/./", str(self.dest_dir)],
-            returncode=1,
+        """Test fallback to basic copy strategy when reflink command fails"""
+        # Make Command.run raise RunError to trigger fallback
+        cmd = tmt.utils.Command(
+            'cp', '-a', '--reflink=auto', f"{self.source_dir}/./", str(self.dest_dir)
+        )
+        mock_run.side_effect = tmt.utils.RunError(
+            message="Command failed", command=cmd, returncode=1
         )
 
         # Execute the function and check that it doesn't crash
