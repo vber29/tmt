@@ -91,15 +91,12 @@ def copy_tree(
     :param dst: Destination directory path
     :param logger: Logger to use for debug messages
     :param workdir_root: The root directory for tmt's working files (e.g., /var/tmp/tmt),
+    :raises GeneralError: when copying fails.
     """
     logger.debug(f"Copying directory tree from '{src}' to '{dst}'")
 
-    # Check if source exists first
-    if not src.exists():
-        logger.debug(f"Source directory '{src}' does not exist, skipping copy.")
-        return
-
-    # Create destination directory if it doesn't exist
+    # Create destination directory if it doesn't exist.
+    # Let underlying operations fail if src doesn't exist to match shutil.copytree behaviour.
     dst.mkdir(parents=True, exist_ok=True)
 
     # 1. Try reflink copy
@@ -112,6 +109,5 @@ def copy_tree(
     try:
         _copy_tree_basic(src, dst, logger, workdir_root)
         logger.debug("Copy finished using basic copy strategy.")
-        return
     except Exception as error:
         raise GeneralError(f"Failed to copy directory tree from '{src}' to '{dst}'.") from error
