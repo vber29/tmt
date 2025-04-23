@@ -541,8 +541,7 @@ class DiscoverFmf(tmt.steps.discover.DiscoverPlugin[DiscoverFmfStepData]):
             if not dist_git_source or dist_git_merge:
                 self.debug(f"Copy '{directory}' to '{self.testdir}'.")
                 if not self.is_dry_run:
-                    # Needed for mypy check
-                    assert isinstance(self.run, tmt.Run)
+                    assert isinstance(self.run, tmt.Run)  # Needed for mypy check
                     tmt.utils.filesystem.copy_tree(
                         directory, self.testdir, self._logger, self.run.workdir_root
                     )
@@ -584,8 +583,7 @@ class DiscoverFmf(tmt.steps.discover.DiscoverPlugin[DiscoverFmfStepData]):
                 )
                 # Copy rest of files so TMT_SOURCE_DIR has patches, sources and spec file
                 # FIXME 'worktree' could be used as sourcedir when 'url' is not set
-                # Explicitly cast self.run to tmt.Run to help mypy
-                assert isinstance(self.run, tmt.Run)
+                assert isinstance(self.run, tmt.Run)  # Needed for mypy check
                 tmt.utils.filesystem.copy_tree(
                     self.testdir if ref else git_root,
                     sourcedir,
@@ -726,8 +724,7 @@ class DiscoverFmf(tmt.steps.discover.DiscoverPlugin[DiscoverFmfStepData]):
             # Save fmf metadata
             clonedir = self.clone_dirpath / 'tests'
             clone_tree_path = clonedir / path.unrooted()
-            # Explicitly cast self.run once before the loop
-            assert isinstance(self.run, tmt.Run)
+            assert isinstance(self.run, tmt.Run)  # Needed for mypy check
             _workdir_root_prune_fmf = self.run.workdir_root
             for file_path in tmt.utils.filter_paths(tree_path, [r'\.fmf']):
                 tmt.utils.filesystem.copy_tree(
@@ -746,8 +743,7 @@ class DiscoverFmf(tmt.steps.discover.DiscoverPlugin[DiscoverFmfStepData]):
                 shutil.copymode(tree_path / upgrade_path, clone_tree_path / upgrade_path)
 
         # Prefix tests and handle library requires
-        # Explicitly cast self.run once before the loop
-        assert isinstance(self.run, tmt.Run)
+        assert isinstance(self.run, tmt.Run)  # Needed for mypy check
         _workdir_root_prune_tests = self.run.workdir_root
         for test in self._tests:
             # Propagate `where` key
@@ -794,8 +790,7 @@ class DiscoverFmf(tmt.steps.discover.DiscoverPlugin[DiscoverFmfStepData]):
             # Clean self.testdir and copy back only required tests and files from clonedir
             # This is to have correct paths in tests
             shutil.rmtree(self.testdir, ignore_errors=True)
-            # Explicitly cast self.run to tmt.Run to help mypy
-            assert isinstance(self.run, tmt.Run)
+            assert isinstance(self.run, tmt.Run)  # Needed for mypy check
             tmt.utils.filesystem.copy_tree(
                 clonedir, self.testdir, self._logger, self.run.workdir_root
             )
@@ -875,8 +870,7 @@ class DiscoverFmf(tmt.steps.discover.DiscoverPlugin[DiscoverFmfStepData]):
                 copy_these = [dist_git_extract.relative_to(sourcedir)]
             else:
                 copy_these = [top_fmf_root.relative_to(sourcedir)]
-            # Explicitly cast self.run once before the loop
-            assert isinstance(self.run, tmt.Run)
+            assert isinstance(self.run, tmt.Run)  # Needed for mypy check
             _workdir_root_distgit = self.run.workdir_root
             for to_copy in copy_these:
                 src = sourcedir / to_copy
