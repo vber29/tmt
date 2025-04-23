@@ -7,7 +7,7 @@ import shutil
 
 import tmt.log
 from tmt._compat.pathlib import Path
-from tmt.utils import Command, RunError
+from tmt.utils import Command, GeneralError, RunError
 
 
 def _copy_tree_reflinks(
@@ -30,13 +30,10 @@ def _copy_tree_reflinks(
         )
         return True
     except RunError as error:
-        # Specific error for command failure
+        # Specific error for command failure (e.g. reflink not supported)
         logger.debug(f"Reflink copy command failed: {error}, falling back")
         return False
-    except Exception as error:
-        # Broad exception for unexpected issues or mock testing
-        logger.debug(f"Reflink copy failed (unexpected error): {error}, falling back")
-        return False
+    # Let other exceptions (e.g. permissions, disk full) propagate
 
 
 def _copy_tree_basic(
@@ -44,40 +41,35 @@ def _copy_tree_basic(
     dst: Path,
     logger: 'tmt.log.Logger',
     workdir_root: Path,
-) -> bool:
+) -> None:
     """
     Perform a basic recursive copy of a directory tree.
 
     Handles files, directories, and symlinks using standard shutil operations.
-    Returns True on successful completion.
+    Raises exceptions on failure.
     """
     logger.debug(f"Performing basic copy from '{src}' to '{dst}'")
 
     copied_count = 0
-    try:
-        for item in src.rglob('*'):
-            relative_path = item.relative_to(src)
-            dst_item = dst / relative_path
+    for item in src.rglob('*'):
+        relative_path = item.relative_to(src)
+        dst_item = dst / relative_path
 
-            if item.is_dir():
-                dst_item.mkdir(parents=True, exist_ok=True)
-                shutil.copystat(item, dst_item)
-            elif item.is_file():
-                dst_item.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, dst_item)  # copy2 preserves metadata
-                copied_count += 1
-            elif item.is_symlink():
-                if dst_item.exists() or dst_item.is_symlink():
-                    dst_item.unlink()
-                link_target = os.readlink(item)
-                os.symlink(link_target, dst_item)
-                copied_count += 1  # Count symlinks as copied items
-    except Exception as e:
-        logger.warning(f"Basic copy failed during processing: {e}")
-        return False
+        if item.is_dir():
+            dst_item.mkdir(parents=True, exist_ok=True)
+            shutil.copystat(item, dst_item)
+        elif item.is_file():
+            dst_item.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, dst_item)  # copy2 preserves metadata
+            copied_count += 1
+        elif item.is_symlink():
+            if dst_item.exists() or dst_item.is_symlink():
+                dst_item.unlink()
+            link_target = os.readlink(item)
+            os.symlink(link_target, dst_item)
+            copied_count += 1  # Count symlinks as copied items
 
     logger.debug(f"Directory copied using basic copy: {copied_count} items processed.")
-    return True
 
 
 def copy_tree(
@@ -117,8 +109,9 @@ def copy_tree(
 
     # 2. Fallback to basic copy
     logger.debug("Falling back to basic copy strategy. (no reflink support in filesystem?)")
-    if _copy_tree_basic(src, dst, logger, workdir_root):
+    try:
+        _copy_tree_basic(src, dst, logger, workdir_root)
         logger.debug("Copy finished using basic copy strategy.")
         return
-
-    logger.warning(f"All copy strategies failed for '{src}' to '{dst}'.")
+    except Exception as error:
+        raise GeneralError(f"Failed to copy directory tree from '{src}' to '{dst}'.") from error
