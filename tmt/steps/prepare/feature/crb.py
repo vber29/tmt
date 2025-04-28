@@ -7,7 +7,7 @@ from tmt.container import container, field
 from tmt.package_managers import Package
 from tmt.steps.prepare.feature import PrepareFeatureData, ToggleableFeature, provides_feature
 from tmt.steps.provision import Guest
-from tmt.utils import DEFAULT_SHELL, Command, RunError
+from tmt.utils import DEFAULT_SHELL, ShellScript
 
 # URL of the upstream script
 UPSTREAM_SCRIPT_URL = "https://src.fedoraproject.org/rpms/epel-release/raw/epel10/f/crb"
@@ -76,19 +76,11 @@ class Crb(ToggleableFeature):
 
         # Command to download and execute the script, passing the action (enable/disable)
         # sh -s -- action: passes 'action' as an argument ($1) to the script executed by sh
-        command_str = f"curl -sS {UPSTREAM_SCRIPT_URL} | {DEFAULT_SHELL} -s -- {action}"
-
-        try:
-            # Execute the command via shell. RunError is raised on failure.
-            guest.execute(Command(DEFAULT_SHELL, '-c', command_str))
-            logger.info(f"Successfully executed {action} using upstream script.")
-
-        except RunError as error:
-            # Log the original error details for better debugging
-            logger.debug(f"RunError details: {error}")
-            raise tmt.utils.GeneralError(
-                f"Failed to {action} CRB repository using upstream script."
-            ) from error
+        guest.execute(
+            ShellScript(
+                f"curl -sS {UPSTREAM_SCRIPT_URL} | FORCE_DNF=1 {DEFAULT_SHELL} -s -- {action}"
+            )
+        )
 
     @classmethod
     def enable(cls, guest: Guest, logger: tmt.log.Logger) -> None:
